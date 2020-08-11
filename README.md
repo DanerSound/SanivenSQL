@@ -1,1 +1,1 @@
-The porpuose of thsi project was to create a simple database from scratch, for the course of DBIS 2019/2020
+The purpose of this project was to create a simple database from scratch, for the course of DBSI 2019/2020
