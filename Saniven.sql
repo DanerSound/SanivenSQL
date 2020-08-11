@@ -9,11 +9,9 @@
 #                                                                          # 
 ############################################################################
 
-
 ############################################################################
 ################   Creazione schema e vincoli database     #################
 ############################################################################
-
 
 drop database if exists Saniven;
 create database if not exists Saniven;
@@ -91,7 +89,7 @@ foreign key(idProd) references Prodotto(idProd) on delete no action
 ################  Creazione istanza: popolamento database  #################
 ############################################################################
 
-load data local infile '/home/dispater/Downloads/SanivenSQL/clienti.csv' into table Clienti
+load data local infile '/home/dispater/Documents/SanivenSQL/clienti.csv' into table Clienti
 fields terminated by ','
 ignore 2 lines
 (idC,cognome,nome,nAzienda,email,tipo,cf,piva,via,nCivico,città,prov,cap);
@@ -130,7 +128,7 @@ insert into Ordine values
 ('U8F9B','preparazione','32FR','crr88'),
 ('S6F7B','spedito','45RT','dr212');
 
-load data local infile '/home/dispater/Downloads/SanivenSQL/Pagamento.in' into table Pagamento
+load data local infile '/home/dispater/Documents/SanivenSQL/Pagamento.in' into table Pagamento
 fields terminated by ';'
 optionally enclosed by '-'
 optionally enclosed by ':'
@@ -139,7 +137,7 @@ starting by '*'
 ignore 4 lines
 (fattura,idPay,tipo,ordine,totale,dataOra);
 
-load data local infile '/home/dispater/Downloads/SanivenSQL/Composizione.in' into table Composizione
+load data local infile '/home/dispater/Documents/SanivenSQL/Composizione.in' into table Composizione
 fields terminated by '$'
 lines terminated by '$'
 starting by ';'
@@ -150,31 +148,57 @@ ignore 5 lines
 ################  Ulteriori vncoli tramite viste e/o trigger ################
 #############################################################################
 
-# TROVA NUMERO DI CONSEGNE EFFETUATE DEI DRONI :
+###TROVA NUMERO DI CONSEGNE EFFETUATE DEI DRONI:
+
+drop view if exists consegneDroni;
+
 create view consegneDroni(numeroConsegne) as
 select count(*)
-from Ordine ord 
-where ord.stato='consegnato' and vettore='dr%';
+from Saniven.Ordine ord 
+where stato='consegnato' and vettore like'dr%';
 
-# VISUALIZZA NOME COGNOME DEGLI UTENTI PRIVATI
+## PER VERIFICARE IL FUNZIONAMENTO
+select * from consegneDroni;
+
+###VISUALIZZA NOME COGNOME DEGLI UTENTI PRIVATI:
+
+drop view if exists Utenti;
+
 create view Utenti as
 select concat(c.nome,' ',c.cognome) as utenti , c.tipo
 from Clienti c
 where c.tipo = 'privato';
 
-# VISUALIZZA I NOMINATIVI DELLE AZIENDE
+## PER VERIFICARE IL FUNZIONAMENTO
+select * from Utenti;
+
+###VISUALIZZA I NOMINATIVI DELLE AZIENDE:
+
+drop view if exists Aziende;
+
 create view Aziende as
 select nAzienda as nomeAzienda, tipo
 from Clienti 
 where tipo = 'Azienda';
 
-# VISUALIZZA IL COSTO DELLE L'ORDINAZIONI DEGLI UTENTI PRIVATI
+## PER VERIFICARE IL FUNZIONAMENTO
+#select * from Aziende;
+
+###VISUALIZZA IL COSTO DELLE ORDINAZIONI DEGLI UTENTI PRIVATI:
+
+drop view if exists spesaPrivati; 
+
 create view spesaPrivati as 
 select c.nome as utente , ord.idOrd as 'numero Ordine', pag.totale
 from Ordine ord, Pagamento pag, Clienti c
 where ord.idOrd=pag.ordine and ord.destinatario = c.idC and c.tipo = 'privato';
 
-## QUESTO TRIGGER INVERTE LA MAIL AZIENDALE, PEC@ART DIVENTA @ARTPEC
+## PER VERIFICARE IL FUNZIONAMENTO
+#select * from spesaPrivati;
+
+###QUESTO TRIGGER INVERTE LA MAIL AZIENDALE, PEC@ART DIVENTA @ARTPEC:
+
+DROP TRIGGER IF EXISTS InvertLegalMail;
 
 DELIMITER $$
 
@@ -186,37 +210,17 @@ BEFORE INSERT ON Saniven.Clienti
 		
 DELIMITER ;
 
-# per verificare il funzionamento:
+## PER VERIFICARE IL FUNZIONAMENTO:
+# insert into Clienti values ('GBAB',null,null,'InvertMail','pec@art','azienda',null,77777,'Sebino',4,'Prato','PO','59100');
+# select * from Clienti where Clienti.idC='GBAB';
 
-insert into Clienti values
-('GBAB',null,null,'InvertMail','pec@art','azienda',null,77777,'Sebino',4,'Prato','PO','59100');
-select * from Clienti;
+### QUESTO TRIGGER CONTROLLA CHE IL CODICE DI UN NUOVO DRONE CORRISPONDA ALLO STANDARD AZIENDALE:
 
- 
-##QUESTO TRIGGER CONTROLLA CHE IL CODICE DI UN NUOVO CORRIERE CORRISPONDA ALLO STANDARD AZIENDALE
-
-DELIMITER $$
-
-CREATE TRIGGER checkCorriere
-BEFORE INSERT ON Saniven.Vettore
-FOR EACH ROW
-    IF left(new.vettore,3)='crr' then 
-		signal sqlstate '45000' SET message_text=' non è un corriere'        
-	END IF;
-
-DELIMITER ; 
-
-# per verificare il funzionamento:
-
-insert into Vettore values ('aaa11','corriere',9.00);
-select * from Vettore;
-delete from Vettore where Vettore.idVettore = 'aaa11';
-
-## QUESTO TRIGGER CONTROLLA CHE IL CODICE DI UN NUOVO DRONE CORRISPONDA ALLO STANDARD AZIENDALE
+DROP TRIGGER IF EXISTS Saniven.checkDrone;
  
 DELIMITER $$
 
-CREATE TRIGGER checkDrone
+CREATE TRIGGER CheckDrone
 BEFORE INSERT ON Saniven.Vettore
 for each row
 begin
@@ -224,115 +228,153 @@ begin
 		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'questo non è un drone aziendale';
     end if;
     
- end;
+ end$$
 
-# per verificare il funzionamento:
+DELIMITER ;
 
-insert into Vettore values ('aaa11','drone',9.00);
-select * from Vettore;
-delete from Vettore where Vettore.idVettore = 'aaa11';
- 
- 
- 
+## PER VERIFICARE IL FUNZIONAMENTO:
+
+#select * from Saniven.Vettore; # stato attuale
+# insert into Vettore values ('aaa11','drone',9.00); # blocherà l'inserimento di questi valori
+# select * from Saniven.Vettore; # infatti esso non è presente nella tabella, tabella invariata
+
+###QUESTO TRIGGER CONTROLLA CHE IL CODICE DI UN NUOVO CORRIERE CORRISPONDA ALLO STANDARD AZIENDALE:
+
+DROP TRIGGER IF EXISTS Saniven.checkCorriere;
+
+DELIMITER $$
+
+CREATE TRIGGER checkCorriere
+BEFORE INSERT ON Saniven.Vettore
+FOR EACH ROW
+BEGIN
+    IF left(new.idVettore,3)!='crr' then 
+		signal sqlstate '45000' SET message_text=' non è un corriere';        
+	END IF;
+END$$
+
+DELIMITER ; 
+
+## PER VERIFICARE IL FUNZIONAMENTO:
+#select * from Vettore; # stato corrente 
+#insert into Vettore values ('aaa11','corriere',9.00); # bloccherà l'inserimento di questa 
+#select * from Vettore; # stato invariato
+
 ############################################################################
 ################ 				 Interrogazioni   		   #################
 ############################################################################
 
-# Possibilmente di vario tipo:  selezioni, proiezioni, join, con raggruppamento, 
-# annidate, con funzioni per il controllo del flusso.
+# 1- QUANTI CLIENTI SI SONO SERVITI DI SANIVEN:
 
-# 1- Quanti clienti si sono serviti di Saniven:
 select count(idC) as Utenti
 from Clienti;
 
-# 2- Quanti privati:
+# 2- QUANTI PRIVATI:
+
 select count(idC) as UtentiPrivati
 from Clienti
 where tipo ="privato";
 
-# 3- Quante aziende di Firenze si sono servite di Saniven:
+# 3- QUANTE AZIENDE DI FIRENZE SI SONO SERVITE DI SANIVEN:
+
 select count(idC) as AziendeFiorentine
 from Clienti 
 where tipo ="azienda" AND città="Firenze";
 
-# 4- Quanti membri di una stessa famiglia abitano a FIRENZE hanno ordinato DPI:
+# 4- QUANTI MEMBRI DI UNA STESSA FAMIGLIA ABITANO A FIRENZE HANNO ORDINATO DPI:
+
 select  count(c1.idC) as famigliari
 from Clienti c1, Clienti c2
 where c1.città = 'Firenze' and c1.cognome=c2.cognome and c1.nome <> c2.nome;
 
-# 5- visualizzare codiceCliente, nomi completi degli utenti registrati ordina per cognome:
+# 5- VISUALIZZARE CODICECLIENTE, NOMI COMPLETI DEGLI UTENTI REGISTRATI ORDINA PER COGNOME:
+
 select c1.idC as codiceCliente, concat(c1.nome,' ',c1.cognome) as nomeCompleto
 from Clienti c1, Clienti c2
 where c1.cognome=c2.cognome and c1.nome <> c2.nome
 order by c1.cognome;
 
-# 6- trova i codici degli ordini che sono stati spediti e codice dei vettori che li trasportano:
+# 6- TROVA I CODICI DEGLI ORDINI CHE SONO STATI SPEDITI E CODICE DEI VETTORI CHE LI TRASPORTANO:
+
 select ord.idOrd, ord.vettore
 from Ordine ord
 where stato ='spedito';
 
-# 7- trova la distanza media percorsa da parte dei droni aziendali:
+# 7- TROVA LA DISTANZA MEDIA PERCORSA DA PARTE DEI DRONI AZIENDALI:
+
 select AVG(distMax) as distanzaMedia
 from Vettore
 where tipo = 'drone';
 
-# 8- trova nome e codice dei clienti che hanno qualche ordine in preparazione:
+# 8- TROVA NOME E CODICE DEI CLIENTI CHE HANNO QUALCHE ORDINE IN PREPARAZIONE:
+
 select idC, nome, cognome, nAzienda as Azienda
 from Clienti
 where idC in ( select destinatario from Ordine where stato='preparazione');
 
-# 9- trova per ogni azienda tutti gli ordini che hanno richiesto: visualizza numero dell'ordine, nome dell'azienda e lo stato dell'ordinazione:
+# 9- TROVA PER OGNI AZIENDA TUTTI GLI ORDINI CHE HANNO RICHIESTO: VISUALIZZA NUMERO DELL'ORDINE, NOME DELL'AZIENDA E LO STATO DELL'ORDINAZIONE:
+
 select distinct Ordine.idOrd, Clienti.nAzienda as nomeAzienda, Ordine.stato
 from Ordine, Clienti
 where destinatario in ( select idC from Clienti where tipo ='azienda') and Clienti.tipo='Azienda';
 
-# 10- trova quanti sono gli ordini "preparazione", "spediti", " consegnati" :
+# 10- TROVA QUANTI SONO GLI ORDINI "PREPARAZIONE", "SPEDITI", " CONSEGNATI" :
+
 select stato,count(*) as 'ordiniInCorso'
 from Ordine
 group by stato
 order by stato;
 
-# 11- conta quanti prodotti vende l'azienda "SANIVEN":
+# 11- CONTA QUANTI PRODOTTI VENDE L'AZIENDA "SANIVEN":
+
 select count(*) as 'prodotti in vendita'
 from Prodotto;
 
-# 12- trova codice e descrizione del prodotto più pesante
+# 12- TROVA CODICE E DESCRIZIONE DEL PRODOTTO PIÙ PESANTE:
+
 select idProd, descrizione
 from Prodotto
 where pesoSpec = ( select max(pesoSpec) as 'Oggetto-Pesante' from Prodotto );
 
-# 13- trova per ogni composizione il peso complessivo e organizzali in maniera crescente
+# 13- TROVA PER OGNI COMPOSIZIONE IL PESO COMPLESSIVO E ORGANIZZALI IN MANIERA CRESCENTE:
+
 select c.idOrd, (c.qta*pesoSpec) as 'pesoComplessivo', c.qta as 'numero pezzi', p.descrizione
 from Composizione c, Prodotto p
 where c.idProd = p.idProd
 order by (pesoComplessivo) ASC;
 
-# 14- trova per ogni ordine il suo costo 
+# 14- TROVA PER OGNI ORDINE IL SUO COSTO:
+ 
 select  ord.idOrd, pag.totale
 from Ordine ord, Pagamento pag
 where ord.idOrd=pag.ordine;
 
-# 15- elencare nome e cognome di tutti i clienti in caratteri maiuscoli, il cui nome termina con i e il cognome inizia con b.
+# 15- ELENCARE NOME E COGNOME DI TUTTI I CLIENTI IN CARATTERI MAIUSCOLI, IL CUI NOME TERMINA CON I E IL COGNOME INIZIA CON B:
+
 select  upper(nome) as 'NOME', upper(cognome) 'COGNOME'
 from Clienti
 where cognome like'B%' or nome like '%i';
 
-# 16- elencare nome e cognome di tutti i clienti che hanno la prima cifra del cap uguale a '5'.
+# 16- ELENCARE NOME E COGNOME DI TUTTI I CLIENTI CHE HANNO LA PRIMA CIFRA DEL CAP UGUALE A '5':
+
 select nome, cognome, nAzienda 
 from Clienti
 where substring(cap, 1,1)='5';
 
-# 17-  elenca tutti gli articoli venduti dalla Saniven ordinandoli a seconda del loro numero di prodotto
+# 17- ELENCA TUTTI GLI ARTICOLI VENDUTI DALLA SANIVEN ORDINANDOLI A SECONDA DEL LORO NUMERO DI PRODOTTO:
+
 select descrizione 
 from Prodotto
 order by idProd;
 
-# 18- per ogni cliente si vuole la lunghezza totale del suo nome e cognome.
+# 18- PER OGNI CLIENTE SI VUOLE LA LUNGHEZZA TOTALE DEL SUO NOME E COGNOME:
+
 select nome, cognome, (length(nome)+length(cognome)) as Lunghezzatotale
 from Clienti
 where nome  not in (select nome from Clienti where nome ='null');
 
-# 19- per ogni ordine elencare numero data ora e totale pagato.
+# 19- PER OGNI ORDINE ELENCARE NUMERO DATA ORA E TOTALE PAGATO:
+
 -- join naturale
 select O.idOrd, T.dataOra, T.totale
 from Ordine O natural join Pagamento T;
@@ -352,23 +394,11 @@ select O.idOrd, T.dataOra, T.totale
 from Ordine O, Pagamento T
 where O.idOrd=T.Ordine;
 
-
 ############################################################################
 ################          Procedure e funzioni             #################
 ############################################################################
 
-#
-DELIMITER $$
-DROP PROCEDURE IF EXISTS TipoPagamento $$
-CREATE PROCEDURE TotalePagato(p VARCHAR(6))
-	SELECT totale
-	FROM Pagamento
-	WHERE idPay = p $$
-DELIMITER ;
-
-CALL TotalePagato('478456');
-
-# 
+### RITORNA IL PESO COMPLESSIVO, DATA UNA QUANTIÀ E UN PESO SPECIFICO:
 DELIMITER $$
 DROP FUNCTION IF EXISTS Saniven.calcolaPeso$$
 CREATE FUNCTION Saniven.calcolaPeso(qta INT,peso DEC(10,2))
@@ -378,16 +408,18 @@ begin
 
 end $$
 DELIMITER ;
+## PER VERIFICARE IL FUNZIONAMENTO:
+# select Saniven.calcolaPeso(10,5.5) as 'Peso Complessivo';
 
-select Saniven.calcolaPeso(10,5.5) as 'Peso Complessivo';
+### DATO UN IDENTIFICATIVO DI PAGAMENTO, RITORNA IL TOTALE PAGATO:
+DELIMITER $$
+DROP PROCEDURE IF EXISTS TotalePagato $$
+CREATE PROCEDURE TotalePagato(p VARCHAR(6))
+	SELECT totale
+	FROM Pagamento
+	WHERE idPay = p $$
+DELIMITER ;
 
-
-
-
-
-
-
-
-
-
+## PER VERIFICARE IL FUNZIONAMENTO:
+#CALL TotalePagato('478456');
 
