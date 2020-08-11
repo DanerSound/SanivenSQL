@@ -1,0 +1,12 @@
+idC,cognome,nome,nAzienda,telefono,tipo,cf,piva,via,nCivico,città,prov,cap
+,,,,,,,,,,,,
+99BK,Casini,Giuliano,null,asd@klj,privato,GC123,0,chiesa,5,Firenze,FI,50125
+99BB,Casini,Francesco,null,wer@huj,privato,FC098,0,Croce,1,Roma,RM,12345
+99RT,Fochini,Simone,null,qwe@drf,privato,SF456,0,Santa,7,Milano,ML,50111
+45GG,Moschini,Serse,null,zxc@rty,privato,SM658,0,Benedetto,10,Firenze,FI,50125
+45GI,Fochini,Emilio,null,iuj@ghy,privato,ES034,0,Benedetto,15,Firenze,FI,50126
+78BF,null,null,Farmacia Serse,PEC@fga,Azienda,null,16436,Cassia,22,Siena,SI,50092
+56RF,null,null,Ambulatorio Bianchi,PEC@dff,Azienda,null,64356,Santa Lucia,99,Firenze,FI,50124
+64TK,null,null,ASL Firenze,PEC@xxx,Azienda,null,67436,Robin,3,Ancona,AN,12345
+32FR,null,null,Ospedale diDio,PEC@arb,Azienda,null,74056,Barman,11,Berlino,\N,0
+45RT,Bennati,Gianni,null,BEN@GML,privato,\N,0,sebi,4,Prato,PO,59100
